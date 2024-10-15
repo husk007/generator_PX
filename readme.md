@@ -1,4 +1,4 @@
-##Generator Numerów Nadawczych
+##Generator Numerów Nadawczych##
 
 ##Opis
 
@@ -33,6 +33,11 @@ Uruchom skrypt za pomocą polecenia:
 
 python nazwa_skryptu.py
 Upewnij się, że masz zainstalowane wszystkie wymagane biblioteki oraz że używasz odpowiedniej wersji Pythona.
+
+Aby utworzyć niezależny plik .exe 
+
+pyinstaller --onefile --windowed --additional-hooks-dir=hooks generator_PX.py
+
 
 ##Użycie
 
@@ -97,6 +102,10 @@ Run the script using the command:
 
 python script_name.py
 Make sure all required libraries are installed and you are using the appropriate version of Python.
+
+To create a standalone .exe file 
+
+pyinstaller --onefile --windowed --additional-hooks-dir=hooks generator_PX.py
 
 ##Usage
 
