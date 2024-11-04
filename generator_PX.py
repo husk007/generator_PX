@@ -349,6 +349,7 @@ class Numery13ZnakowTab(ttk.Frame):
         poczatkowe_liczby_str = self.poczatkowe_liczby_entry.get()
         poczatkowe_liczby_str = ''.join(filter(str.isdigit, poczatkowe_liczby_str))
 
+        # Inicjalizacja poczatkowe_liczby w zależności od wybranej opcji
         if selected_option == 'numery pomocnicze APM':
             dlugosc_numeru = self.var_dlugosc.get()
             liczba_cyfr = 7 if dlugosc_numeru == 10 else 6
@@ -403,6 +404,26 @@ class Numery13ZnakowTab(ttk.Frame):
                 self.numery_listbox.delete(0, tk.END)
                 return
 
+        elif selected_option == 'Pocztex 2.0':
+            # Dla Pocztex 2.0, potrzebujemy 9 cyfr
+            poczatkowe_liczby_str = poczatkowe_liczby_str.zfill(9)
+
+            try:
+                poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str]
+                if len(poczatkowe_liczby) != 9:
+                    raise ValueError
+            except ValueError:
+                self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
+                self.numery_listbox.delete(0, tk.END)
+                return
+
+            max_value = 999999999 - ilosc_numerow + 1
+            current_value = int(''.join(map(str, poczatkowe_liczby)))
+            if current_value > max_value:
+                self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę dla Pocztex 2.0")
+                self.numery_listbox.delete(0, tk.END)
+                return
+
         else:
             # Dla pozostałych przesyłek
             poczatkowe_liczby_str = poczatkowe_liczby_str.zfill(8)
@@ -414,7 +435,7 @@ class Numery13ZnakowTab(ttk.Frame):
                 self.numery_listbox.delete(0, tk.END)
                 return
 
-            max_value = 99999999 - ilosc_numerow + 1
+            max_value = 999999999 - ilosc_numerow + 1
             current_value = int(''.join(map(str, poczatkowe_liczby)))
             if current_value > max_value:
                 self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
@@ -470,7 +491,7 @@ class Numery13ZnakowTab(ttk.Frame):
                 numer_cyfry = ''.join(map(str, poczatkowe_liczby))
 
                 # Sprawdź, czy numer nie przekracza maksymalnej wartości
-                max_value = 99999999 - ilosc_numerow + 1
+                max_value = 999999999 - ilosc_numerow + 1
                 current_value = int(numer_cyfry)
                 if current_value > max_value:
                     self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę dla Pocztex 2.0")
@@ -479,8 +500,8 @@ class Numery13ZnakowTab(ttk.Frame):
 
                 # Oblicz cyfrę kontrolną
                 suma_wazona = 0
-                wagi = [8, 6, 4, 2, 3, 5, 9, 7]
-                for j in range(8):
+                wagi = [8, 6, 4, 2, 3, 5, 9, 7, 8]
+                for j in range(9):
                     suma_wazona += int(numer_cyfry[j]) * wagi[j]
                 reszta = suma_wazona % 11
                 if reszta == 0:
@@ -505,7 +526,7 @@ class Numery13ZnakowTab(ttk.Frame):
                 numer_cyfry = ''.join(map(str, poczatkowe_liczby))
 
                 # Sprawdź, czy numer nie przekracza maksymalnej wartości
-                max_value = 99999999 - ilosc_numerow + 1
+                max_value = 999999999 - ilosc_numerow + 1
                 current_value = int(numer_cyfry)
                 if current_value > max_value:
                     self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
@@ -514,7 +535,7 @@ class Numery13ZnakowTab(ttk.Frame):
 
                 # Oblicz cyfrę kontrolną
                 suma_wazona = 0
-                wagi = [8, 6, 4, 2, 3, 5, 9, 7]
+                wagi = [8, 6, 4, 2, 3, 5, 9, 7, 8]
                 for j in range(8):
                     suma_wazona += int(numer_cyfry[j]) * wagi[j]
                 reszta = suma_wazona % 11
@@ -708,10 +729,12 @@ class Numery20ZnakowTab(ttk.Frame):
         self.barcode_label.grid(row=15, column=0, columnspan=2, pady=10)
 
         # Przyciski eksportu i drukowania
-        eksport_csv_button = ttk.Button(self, text="Eksport do CSV", command=lambda: eksport_do_csv(self.numery_przesylek_listbox))
+        eksport_csv_button = ttk.Button(self, text="Eksport do CSV",
+                                        command=lambda: eksport_do_csv(self.numery_przesylek_listbox))
         eksport_csv_button.grid(row=13, column=0, pady=5, padx=10, sticky=tk.W)
 
-        drukuj_kody_button = ttk.Button(self, text="Drukuj kody kreskowe", command=lambda: drukuj_kody_kreskowe(self.numery_przesylek_listbox, numer_formatowany=True))
+        drukuj_kody_button = ttk.Button(self, text="Drukuj kody kreskowe",
+                                        command=lambda: drukuj_kody_kreskowe(self.numery_przesylek_listbox, numer_formatowany=True))
         drukuj_kody_button.grid(row=13, column=1, pady=5, padx=10, sticky=tk.E)
 
     def on_przesylka_selected(self):
@@ -799,10 +822,10 @@ class Numery20ZnakowTab(ttk.Frame):
             return
 
         poczatkowe_liczby_str = self.poczatkowe_liczby_przesylek_entry.get()
-        poczatkowe_liczby_str = poczatkowe_liczby_str.zfill(8)
+        poczatkowe_liczby_str = ''.join(filter(str.isdigit, poczatkowe_liczby_str)).zfill(8)
 
         try:
-            poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str if x.isdigit()]
+            poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str]
             if len(poczatkowe_liczby) > 8:
                 raise ValueError
         except ValueError:
@@ -851,10 +874,11 @@ class Numery20ZnakowTab(ttk.Frame):
                     return
 
             cyfra_kontrolna = self.oblicz_cyfre_kontrolna_gs1(numer_bez_k)
-            pelny_numer = f"(00){numer_bez_k}{cyfra_kontrolna}"
+            pelny_numer = f"00{numer_bez_k}{cyfra_kontrolna}"  # Usunięto nawiasy
             self.numery_przesylek_listbox.insert(tk.END, pelny_numer)
 
             if i < ilosc_numerow - 1:
+                # Inkrementuj numer początkowy
                 for j in range(7, -1, -1):
                     poczatkowe_liczby[j] += 1
                     if poczatkowe_liczby[j] < 10:
@@ -923,16 +947,6 @@ class Numery20ZnakowTab(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie można wygenerować kodu kreskowego: {e}")
             return None
-
-def create_entry_with_label(parent, label_text, default_value="", row=None, column=0, columnspan=1):
-    """Tworzy etykietę i pole wprowadzania."""
-    label = ttk.Label(parent, text=label_text)
-    entry = ttk.Entry(parent)
-    entry.insert(0, default_value)
-    if row is not None:
-        label.grid(row=row, column=column, sticky=tk.W, padx=10, pady=2)
-        entry.grid(row=row, column=column+1, sticky=tk.EW, padx=10, pady=2, columnspan=columnspan)
-    return entry
 
 # --- Klasa dla zakładki "Inne" ---
 
