@@ -52,7 +52,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
-    icon='icon.ico',  # Zmień na ścieżkę do Twojej ikony lub usuń, jeśli nie używasz ikony
+    icon='barcode.ico',
 )
 
 coll = COLLECT(
