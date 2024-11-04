@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pyperclip
 import csv
+import sys
+import os
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.graphics.barcode import code128
@@ -558,8 +560,30 @@ class Numery13ZnakowTab(ttk.Frame):
     def generate_barcode_image(self, numer):
         """Generuje obraz kodu kreskowego dla danego numeru."""
         try:
-            barcode = Code128(numer, writer=ImageWriter())
-            barcode_image = barcode.render(writer_options={'module_height': 10.0, 'module_width': 0.2, 'quiet_zone': 1.0})
+            # Ustalanie ścieżki do czcionki
+            if getattr(sys, 'frozen', False):
+                # Jeśli aplikacja jest spakowana przez PyInstaller
+                base_path = sys._MEIPASS
+            else:
+                # Jeśli aplikacja jest uruchomiona w środowisku deweloperskim
+                base_path = os.path.abspath(".")
+            font_path = os.path.join(base_path, 'arial.ttf')
+
+            # Sprawdź, czy plik czcionki istnieje
+            if not os.path.exists(font_path):
+                raise FileNotFoundError(f"Czcionka nie została znaleziona: {font_path}")
+
+            # Konfiguracja ImageWriter z czcionką
+            writer = ImageWriter()
+            writer.font_path = font_path
+
+            # Generowanie kodu kreskowego
+            barcode = Code128(numer, writer=writer)
+            barcode_image = barcode.render(writer_options={
+                'module_height': 10.0,
+                'module_width': 0.2,
+                'quiet_zone': 1.0
+            })
             return barcode_image
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie można wygenerować kodu kreskowego: {e}")
