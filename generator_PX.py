@@ -11,6 +11,7 @@ import webbrowser
 import subprocess
 import pygetwindow as gw
 import pyautogui
+import threading
 import win32gui
 import win32con
 import time
@@ -60,8 +61,11 @@ def kopiuj_do_schowka(event):
         pass
 
 def activate_and_send(data_to_send):
-    """Aktywuje okno aplikacji i wysyła dane."""
+    """Aktywuje okno aplikacji i wysyła dane. Jeśli nie znajdzie odpowiedniej aplikacji,
+    poinformuje użytkownika i po 2 sekundach wyśle dane do aktywnego okna."""
+    
     def try_activate(window_title):
+        """Próbuje aktywować okno o podanym tytule i wysyła dane."""
         windows = gw.getWindowsWithTitle(window_title)
         if windows:
             window = windows[0]
@@ -73,9 +77,24 @@ def activate_and_send(data_to_send):
             return True
         return False
 
+    # Próba aktywacji okna "Poczta+"
     if not try_activate("Poczta+"):
+        # Próba aktywacji okna "Rejestracja"
         if not try_activate("Rejestracja"):
-            messagebox.showerror("Błąd", "Nie znaleziono odpowiedniej aplikacji.")
+            # Jeśli żadne okno nie zostało znalezione, uruchom funkcję wysyłania do aktywnego okna
+            def send_to_active_window():
+                # Poinformuj użytkownika
+                messagebox.showinfo(
+                    "Informacja",
+                    "Nie znaleziono odpowiedniej aplikacji. Dane zostaną wysłane do aktywnego okna za 2 sekundy."
+                )
+                # Opóźnienie 2 sekundy
+                time.sleep(2)
+                # Wysłanie danych do aktywnego okna
+                pyautogui.typewrite(data_to_send)
+
+            # Uruchomienie wysyłania w osobnym wątku
+            threading.Thread(target=send_to_active_window).start()
 
 def eksport_do_csv(listbox):
     """Eksportuje numery z listboxa do pliku CSV."""
