@@ -343,8 +343,8 @@ class Numery13ZnakowTab(ttk.Frame):
             messagebox.showerror("Błąd", "Proszę wybrać numer z listy.")
             return
         numer = self.numery_listbox.get(selected_indices[0])
-        prefix = self.prefix_entry.get() or "@"
-        suffix = self.suffix_entry.get() or "@"
+        prefix = self.prefix_entry.get()
+        suffix = self.suffix_entry.get()
         data_to_send = f"{prefix}{numer}{suffix}"
         activate_and_send(data_to_send)
 
@@ -811,8 +811,8 @@ class Numery20ZnakowTab(ttk.Frame):
             return
 
         numer = self.numery_przesylek_listbox.get(selected_indices[0])
-        prefix = self.prefix_przesylki_entry.get() or "@"
-        suffix = self.suffix_przesylki_entry.get() or "@"
+        prefix = self.prefix_przesylki_entry.get()
+        suffix = self.suffix_przesylki_entry.get()
         data_to_send = f"{prefix}{numer}{suffix}"
         activate_and_send(data_to_send)
         
@@ -1080,8 +1080,8 @@ class InneTab(ttk.Frame):
             messagebox.showerror("Błąd", "Proszę wybrać numer z listy.")
             return
         numer = self.numery_listbox.get(selected_indices[0])
-        prefix = self.prefix_entry.get() or "@"
-        suffix = self.suffix_entry.get() or "@"
+        prefix = self.prefix_entry.get()
+        suffix = self.suffix_entry.get()
         data_to_send = f"{prefix}{numer}{suffix}"
         activate_and_send(data_to_send)
 
