@@ -2,16 +2,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pyperclip
 import csv
-import sys
-import os
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.graphics.barcode import code128
 import webbrowser
-import subprocess
 import pygetwindow as gw
 import pyautogui
-import threading
 import win32gui
 import win32con
 import time
@@ -21,7 +17,7 @@ import datetime
 # Dodane importy
 from barcode import Code128
 from barcode.writer import ImageWriter
-from PIL import Image, ImageTk
+from PIL import ImageTk
 
 # --- Wspólne funkcje ---
 
@@ -81,20 +77,13 @@ def activate_and_send(data_to_send):
     if not try_activate("Poczta+"):
         # Próba aktywacji okna "Rejestracja"
         if not try_activate("Rejestracja"):
-            # Jeśli żadne okno nie zostało znalezione, uruchom funkcję wysyłania do aktywnego okna
-            def send_to_active_window():
-                # Poinformuj użytkownika
-                messagebox.showinfo(
-                    "Informacja",
-                    "Nie znaleziono odpowiedniej aplikacji. Dane zostaną wysłane do aktywnego okna za 2 sekundy."
-                )
-                # Opóźnienie 2 sekundy
-                time.sleep(2)
-                # Wysłanie danych do aktywnego okna
-                pyautogui.typewrite(data_to_send)
-
-            # Uruchomienie wysyłania w osobnym wątku
-            threading.Thread(target=send_to_active_window).start()
+            # Jeśli żadne okno nie zostało znalezione, wyślij dane do aktywnego okna po 2 sekundach.
+            # Dialog i timer działają w wątku głównego okna Tk (tkinter nie jest bezpieczny wątkowo).
+            messagebox.showinfo(
+                "Informacja",
+                "Nie znaleziono odpowiedniej aplikacji. Dane zostaną wysłane do aktywnego okna za 2 sekundy."
+            )
+            root.after(2000, lambda: pyautogui.typewrite(data_to_send))
 
 def eksport_do_csv(listbox):
     """Eksportuje numery z listboxa do pliku CSV."""
@@ -157,6 +146,19 @@ def create_entry_with_label(parent, label_text, default_value="", row=None):
         label.grid(row=row, column=0, sticky=tk.W, padx=10, pady=2)
         entry.grid(row=row, column=1, sticky=tk.EW, padx=10, pady=2)
     return entry
+
+def generuj_obraz_kodu_kreskowego(numer):
+    """Generuje obraz kodu kreskowego Code 128 (używa czcionki dołączonej do python-barcode)."""
+    try:
+        barcode = Code128(numer, writer=ImageWriter())
+        return barcode.render(writer_options={
+            'module_height': 10.0,
+            'module_width': 0.2,
+            'quiet_zone': 1.0
+        })
+    except Exception as e:
+        messagebox.showerror("Błąd", f"Nie można wygenerować kodu kreskowego: {e}")
+        return None
 
 # --- Klasa dla zakładki "Numery 13 znaków" ---
 
@@ -389,15 +391,6 @@ class Numery13ZnakowTab(ttk.Frame):
                 return
 
         elif selected_option == 'PUH':
-            poczatkowe_liczby_str = poczatkowe_liczby_str.lstrip('0')
-
-            try:
-                poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str]
-            except ValueError:
-                self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
-                self.numery_listbox.delete(0, tk.END)
-                return
-
             try:
                 dlugosc_puh = int(self.dlugosc_puh_entry.get())
                 if not 10 <= dlugosc_puh <= 20:
@@ -408,8 +401,21 @@ class Numery13ZnakowTab(ttk.Frame):
                 return
 
             rodzaj_przesylki_puh = self.rodzaj_przesylki_puh_entry.get()
+            dostepne_cyfry = dlugosc_puh - len(rodzaj_przesylki_puh) - 1  # -1 dla cyfry kontrolnej
+            if dostepne_cyfry < 1:
+                self.error_label.config(text="Rodzaj przesyłki jest zbyt długi dla wybranej długości")
+                self.numery_listbox.delete(0, tk.END)
+                return
 
-            num_zeros = dlugosc_puh - len(rodzaj_przesylki_puh) - len(poczatkowe_liczby_str) - 1  # -1 dla cyfry kontrolnej
+            poczatkowe_liczby_str = poczatkowe_liczby_str.lstrip('0')
+            if not poczatkowe_liczby_str:
+                # Brak numeru początkowego (lub same zera): licznik zajmuje całą dostępną
+                # długość i startuje od zera
+                poczatkowe_liczby_str = '0' * dostepne_cyfry
+
+            poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str]
+
+            num_zeros = dostepne_cyfry - len(poczatkowe_liczby_str)
 
             if num_zeros < 0:
                 self.error_label.config(text="Numer początkowy jest zbyt długi dla wybranej długości")
@@ -444,17 +450,17 @@ class Numery13ZnakowTab(ttk.Frame):
                 return
 
         else:
-            # Dla pozostałych przesyłek
+            # Dla pozostałych przesyłek (standard S10: 8 cyfr numeru + cyfra kontrolna)
             poczatkowe_liczby_str = poczatkowe_liczby_str.zfill(8)
 
-            try:
-                poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str]
-            except ValueError:
-                self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
+            if len(poczatkowe_liczby_str) > 8:
+                self.error_label.config(text="Numer początkowy może mieć maksymalnie 8 cyfr")
                 self.numery_listbox.delete(0, tk.END)
                 return
 
-            max_value = 999999999 - ilosc_numerow + 1
+            poczatkowe_liczby = [int(x) for x in poczatkowe_liczby_str]
+
+            max_value = 99999999 - ilosc_numerow + 1
             current_value = int(''.join(map(str, poczatkowe_liczby)))
             if current_value > max_value:
                 self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
@@ -544,8 +550,8 @@ class Numery13ZnakowTab(ttk.Frame):
 
                 numer_cyfry = ''.join(map(str, poczatkowe_liczby))
 
-                # Sprawdź, czy numer nie przekracza maksymalnej wartości
-                max_value = 999999999 - ilosc_numerow + 1
+                # Sprawdź, czy numer nie przekracza maksymalnej wartości (8 cyfr)
+                max_value = 99999999 - ilosc_numerow + 1
                 current_value = int(numer_cyfry)
                 if current_value > max_value:
                     self.error_label.config(text="Przekroczono maksymalną długość numeru, zmniejsz początkową liczbę")
@@ -599,35 +605,7 @@ class Numery13ZnakowTab(ttk.Frame):
 
     def generate_barcode_image(self, numer):
         """Generuje obraz kodu kreskowego dla danego numeru."""
-        try:
-            # Ustalanie ścieżki do czcionki
-            if getattr(sys, 'frozen', False):
-                # Jeśli aplikacja jest spakowana przez PyInstaller
-                base_path = sys._MEIPASS
-            else:
-                # Jeśli aplikacja jest uruchomiona w środowisku deweloperskim
-                base_path = os.path.abspath(".")
-            font_path = os.path.join(base_path, 'arial.ttf')
-
-            # Sprawdź, czy plik czcionki istnieje
-            if not os.path.exists(font_path):
-                raise FileNotFoundError(f"Czcionka nie została znaleziona: {font_path}")
-
-            # Konfiguracja ImageWriter z czcionką
-            writer = ImageWriter()
-            writer.font_path = font_path
-
-            # Generowanie kodu kreskowego
-            barcode = Code128(numer, writer=writer)
-            barcode_image = barcode.render(writer_options={
-                'module_height': 10.0,
-                'module_width': 0.2,
-                'quiet_zone': 1.0
-            })
-            return barcode_image
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można wygenerować kodu kreskowego: {e}")
-            return None
+        return generuj_obraz_kodu_kreskowego(numer)
 
 # --- Klasa dla zakładki "Numery 20 znaków" ---
 
@@ -903,6 +881,10 @@ class Numery20ZnakowTab(ttk.Frame):
                     if poczatkowe_liczby[j] < 10:
                         break
                     poczatkowe_liczby[j] = 0
+                else:
+                    # Przepełnienie licznika (99999999 -> 00000000): przerywamy zamiast zawijać numerację
+                    self.error_przesylki_label.config(text="Przekroczono maksymalną liczbę dla podanej długości")
+                    break
 
     def oblicz_cyfre_kontrolna_gs1(self, numer_bez_k):
         """Oblicza cyfrę kontrolną według algorytmu GS1."""
@@ -937,35 +919,7 @@ class Numery20ZnakowTab(ttk.Frame):
 
     def generate_barcode_image(self, numer):
         """Generuje obraz kodu kreskowego dla danego numeru."""
-        try:
-            # Ustalanie ścieżki do czcionki
-            if getattr(sys, 'frozen', False):
-                # Jeśli aplikacja jest spakowana przez PyInstaller
-                base_path = sys._MEIPASS
-            else:
-                # Jeśli aplikacja jest uruchomiona w środowisku deweloperskim
-                base_path = os.path.abspath(".")
-            font_path = os.path.join(base_path, 'arial.ttf')
-
-            # Sprawdź, czy plik czcionki istnieje
-            if not os.path.exists(font_path):
-                raise FileNotFoundError(f"Czcionka nie została znaleziona: {font_path}")
-
-            # Konfiguracja ImageWriter z czcionką
-            writer = ImageWriter()
-            writer.font_path = font_path
-
-            # Generowanie kodu kreskowego
-            barcode = Code128(numer, writer=writer)
-            barcode_image = barcode.render(writer_options={
-                'module_height': 10.0,
-                'module_width': 0.2,
-                'quiet_zone': 1.0
-            })
-            return barcode_image
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można wygenerować kodu kreskowego: {e}")
-            return None
+        return generuj_obraz_kodu_kreskowego(numer)
 
 # --- Klasa dla zakładki "Inne" ---
 
@@ -1003,7 +957,7 @@ class InneTab(ttk.Frame):
         self.nip_kod_urzedu_label = ttk.Label(self, text="Kod urzędu skarbowego (3 cyfry):")
         self.nip_kod_urzedu_entry = ttk.Entry(self)
 
-        self.regon_poczatkowe_label = ttk.Label(self, text="Początkowe cyfry REGON (7 lub 8 cyfr):")
+        self.regon_poczatkowe_label = ttk.Label(self, text="Początkowe cyfry REGON (8 cyfr):")
         self.regon_poczatkowe_entry = ttk.Entry(self)
 
         self.nrb_bank_label = ttk.Label(self, text="Numer banku (8 cyfr):")
@@ -1126,7 +1080,12 @@ class InneTab(ttk.Frame):
             miesiac = int(data_urodzenia_input[4:6])
             dzien = int(data_urodzenia_input[6:8])
 
-            if not (1900 <= rok <= 2299) or not (1 <= miesiac <= 12) or not (1 <= dzien <= 31):
+            if not (1900 <= rok <= 2299):
+                self.error_label.config(text="Rok urodzenia musi mieścić się w zakresie 1900-2299")
+                return
+            try:
+                datetime.date(rok, miesiac, dzien)  # sprawdza poprawność daty (np. 31 lutego)
+            except ValueError:
                 self.error_label.config(text="Nieprawidłowa data urodzenia")
                 return
         else:
@@ -1176,30 +1135,27 @@ class InneTab(ttk.Frame):
         else:
             kod_urzedu = f"{random.randint(101, 999):03d}"
 
+        wagi = [6, 5, 7, 2, 3, 4, 5, 6, 7]
         for _ in range(ilosc):
-            numer_porzadkowy = random.randint(0, 999999)
-            numer_bez_k = kod_urzedu + f"{numer_porzadkowy:06d}"
-            wagi = [6, 5, 7, 2, 3, 4, 5, 6, 7]
-            suma = sum(int(numer_bez_k[i]) * wagi[i] for i in range(9))
-            reszta = suma % 11
-            if reszta == 10:
-                cyfra_kontrolna = 0
-            else:
-                cyfra_kontrolna = reszta
-            nip = numer_bez_k + str(cyfra_kontrolna)
+            while True:
+                numer_porzadkowy = random.randint(0, 999999)
+                numer_bez_k = kod_urzedu + f"{numer_porzadkowy:06d}"
+                suma = sum(int(numer_bez_k[i]) * wagi[i] for i in range(9))
+                reszta = suma % 11
+                if reszta != 10:  # reszta 10 oznacza numer bez poprawnej cyfry kontrolnej - losujemy ponownie
+                    break
+            nip = numer_bez_k + str(reszta)
             self.numery_listbox.insert(tk.END, nip)
 
     def generuj_regon(self, ilosc):
         """Generuje numery REGON."""
         poczatkowe_cyfry = self.regon_poczatkowe_entry.get()
         if poczatkowe_cyfry:
-            if not poczatkowe_cyfry.isdigit() or len(poczatkowe_cyfry) not in [7, 8]:
-                self.error_label.config(text="Błędne początkowe cyfry REGON (7 lub 8 cyfr)")
+            if not poczatkowe_cyfry.isdigit() or len(poczatkowe_cyfry) != 8:
+                self.error_label.config(text="Błędne początkowe cyfry REGON (8 cyfr)")
                 return
-            dlugosc_regon = len(poczatkowe_cyfry) + 1  # Dodamy cyfrę kontrolną
         else:
-            dlugosc_regon = 9
-            poczatkowe_cyfry = ''.join([str(random.randint(0, 9)) for _ in range(dlugosc_regon - 1)])
+            poczatkowe_cyfry = ''.join([str(random.randint(0, 9)) for _ in range(8)])
 
         for _ in range(ilosc):
             numer_bez_k = poczatkowe_cyfry
@@ -1241,8 +1197,8 @@ class InneTab(ttk.Frame):
         for _ in range(ilosc):
             # Oblicz sumę kontrolną
             numer_bez_k = numer_banku + numer_rachunku
-            numer_do_obliczen = numer_bez_k + '252100'  # 'PL00' jako liczby
-            numer_do_obliczen = numer_do_obliczen[2:] + numer_do_obliczen[:2]
+            # Algorytm mod 97 (jak dla IBAN): numer rachunku + kod kraju "PL" (P=25, L=21) + "00"
+            numer_do_obliczen = numer_bez_k + '252100'
             liczba = int(numer_do_obliczen)
             reszta = liczba % 97
             suma_kontrolna = (98 - reszta) % 97
@@ -1269,67 +1225,40 @@ class InneTab(ttk.Frame):
 
     def generate_barcode_image(self, numer):
         """Generuje obraz kodu kreskowego dla danego numeru."""
-        try:
-            # Ustalanie ścieżki do czcionki
-            if getattr(sys, 'frozen', False):
-                # Jeśli aplikacja jest spakowana przez PyInstaller
-                base_path = sys._MEIPASS
-            else:
-                # Jeśli aplikacja jest uruchomiona w środowisku deweloperskim
-                base_path = os.path.abspath(".")
-            font_path = os.path.join(base_path, 'arial.ttf')
-
-            # Sprawdź, czy plik czcionki istnieje
-            if not os.path.exists(font_path):
-                raise FileNotFoundError(f"Czcionka nie została znaleziona: {font_path}")
-
-            # Konfiguracja ImageWriter z czcionką
-            writer = ImageWriter()
-            writer.font_path = font_path
-
-            # Generowanie kodu kreskowego
-            barcode = Code128(numer, writer=writer)
-            barcode_image = barcode.render(writer_options={
-                'module_height': 10.0,
-                'module_width': 0.2,
-                'quiet_zone': 1.0
-            })
-            return barcode_image
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można wygenerować kodu kreskowego: {e}")
-            return None
+        return generuj_obraz_kodu_kreskowego(numer)
 
 # --- Inicjalizacja GUI ---
 
-root = tk.Tk()
-root.title("Generator Numerów Nadawczych")
-root.geometry("750x900")
-root.resizable(True, True)
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("Generator Numerów Nadawczych")
+    root.geometry("750x900")
+    root.resizable(True, True)
 
-# Górny frame dla przycisku "Pomoc"
-top_frame = ttk.Frame(root)
-top_frame.pack(side=tk.TOP, fill=tk.X)
+    # Górny frame dla przycisku "Pomoc"
+    top_frame = ttk.Frame(root)
+    top_frame.pack(side=tk.TOP, fill=tk.X)
 
-# Przycisk "?"
-pomoc_button = ttk.Button(top_frame, text="?", command=pomoc)
-pomoc_button.pack(side=tk.RIGHT, padx=10, pady=0)
+    # Przycisk "?"
+    pomoc_button = ttk.Button(top_frame, text="?", command=pomoc)
+    pomoc_button.pack(side=tk.RIGHT, padx=10, pady=0)
 
-# Notebook z zakładkami
-notebook = ttk.Notebook(root)
-notebook.pack(expand=True, fill="both", padx=10, pady=0)
+    # Notebook z zakładkami
+    notebook = ttk.Notebook(root)
+    notebook.pack(expand=True, fill="both", padx=10, pady=0)
 
-# Zakładka "Numery 13 znaków"
-# (Pozostawiamy istniejące zakładki bez zmian)
-tab1 = Numery13ZnakowTab(notebook)
-notebook.add(tab1, text="Numery 13 znaków")
+    # Zakładka "Numery 13 znaków"
+    # (Pozostawiamy istniejące zakładki bez zmian)
+    tab1 = Numery13ZnakowTab(notebook)
+    notebook.add(tab1, text="Numery 13 znaków")
 
-# Zakładka "Numery 20 znaków"
-tab2 = Numery20ZnakowTab(notebook)
-notebook.add(tab2, text="Numery 20 znaków")
+    # Zakładka "Numery 20 znaków"
+    tab2 = Numery20ZnakowTab(notebook)
+    notebook.add(tab2, text="Numery 20 znaków")
 
-# Nowa zakładka "Inne"
-inne_tab = InneTab(notebook)
-notebook.add(inne_tab, text="Inne")
+    # Nowa zakładka "Inne"
+    inne_tab = InneTab(notebook)
+    notebook.add(inne_tab, text="Inne")
 
-# Uruchomienie głównej pętli
-root.mainloop()
+    # Uruchomienie głównej pętli
+    root.mainloop()
