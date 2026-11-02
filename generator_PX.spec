@@ -1,12 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_data_files
+
 block_cipher = None
 
 a = Analysis(
     ['generator_PX.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    # czcionka używana do podpisów kodów kreskowych jest dołączona do pakietu python-barcode
+    datas=collect_data_files('barcode'),
     hiddenimports=[
         'pyperclip',
         'barcode',
@@ -30,7 +33,7 @@ a = Analysis(
         'pyscreeze',
         'pyscreeze._screenshot',
     ],
-    hookspath=[],
+    hookspath=['hooks'],
     runtime_hooks=[],
     excludes=[],
     win_no_prefer_redirects=False,

@@ -25,7 +25,8 @@ Aplikacja automatycznie oblicza cyfry kontrolne i zapewnia zgodność wygenerowa
 
 ## Wymagania
 
-- **Python:** wersja 3.x
+- **System:** Windows (aplikacja używa `pywin32`, `pygetwindow` i `pyautogui` do integracji z oknami)
+- **Python:** wersja 3.9 lub nowsza
 - **Biblioteki Python:**
   - `tkinter` (standardowo dostępny w instalacji Pythona)
   - `pyperclip`
@@ -146,7 +147,8 @@ The application automatically calculates control digits and ensures that the gen
 
 ## Requirements
 
-- **Python:** version 3.x
+- **OS:** Windows (the app uses `pywin32`, `pygetwindow` and `pyautogui` for window integration)
+- **Python:** version 3.9 or newer
 - **Python Libraries:**
   - `tkinter` (usually included with Python installation)
   - `pyperclip`
